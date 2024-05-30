@@ -1,0 +1,16 @@
+sampling di posizioni e velocità con modello di plummer,
+con metodo dell'inversione
+per ottenere condizioni iniziali stabili
+
+testare rebound con 100 masse uguali messe uniformi a caso, fare evolvere
+
+provare con masse diverse
+
+capire tempi scala per 100 masse (t relax, t cross,...)
+
+mettere su gli appunti rilevanti da Lupi
+
+capire meglio
+segregazione di massa
+violent relaxation
+evaporazione
