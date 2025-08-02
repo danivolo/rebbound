@@ -5,17 +5,16 @@ Per le simulazioni si utilizza il codice a N-corpi REBOUND, che integra il moto 
 
 All'inizio abbiamo preso dimestichezza con il funzionamento base di REBOUND, eseguendo alcuni dei suoi tutorial base.
 
-![alt text](Churyumov-Gerasimenko1.png) 
+ 
+![alt text](img/Churyumov-Gerasimenko1.png)
 
-![alt text](Churyumov-Gerasimenko2.png)
-
+![alt text](img/Churyumov-Gerasimenko2.png)
 
 Dopodiché abbiamo cercato quale fosse il setup ideale per una verifica semplice della formula di Chandrasekhar per la frizione dinamica.
 
-![alt text](image-1.png)
+![alt text](img/image-1.png)
 
-![alt text](image-2.png)
+![alt text](img/image-2.png)
 
-![alt text](image-3.png)
-
+![alt text](img/image-3.png)
 
