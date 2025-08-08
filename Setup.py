@@ -15,7 +15,7 @@ class setup_class:
         self.nx = nx
         self.ny = ny
         self.N = N
-        self.nrows = nrows
+        self.nrows = len(ys)
         self.ncols = ncols
 
         self.m_tot = m_tot
@@ -117,6 +117,7 @@ class setup_class:
             ymin, ymax = ax.get_ylim()
             ax.vlines(sim.particles['BH'].vx + self.Vx,ymin,ymax,'r',linestyles='-',linewidth=4,label='black hole vx',alpha=0.5)
             # ax.set_yscale('log')
+            ax.set_xscale('symlog')
             ax.legend()
 
             
@@ -187,9 +188,12 @@ def build_setup(boxL,nx, ny, N, nrows, m_tot, m_BH, Vx, r, tau, T):
 
 
     ncols = int(N/nrows)
-
+   
     xs = np.linspace(-nx*boxL/2,nx*boxL/2,ncols)
     ys = np.linspace(-ny*boxL/2*0.9,ny*boxL/2*0.9,nrows)
+    m = 0
+    mask = (ys < -m) | (ys > m)
+    ys = ys[mask]
 
     x_BH = []
     v_BH = []
