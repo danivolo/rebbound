@@ -3,24 +3,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from typing import Optional
+from pathlib import Path
 
 # Definisco una classe con i parametri della simulazione e le funzioni 
 # che utilizzo in heartbeat per lo studio real time della frizione dinamica
 
 class setup_class:
-    def __init__(self, boxL,nx, ny, N, nrows, m_tot, m_BH, Vx, r, tau, T):
-        boxL, nx, ny, N, nrows, ncols, m_tot, m_BH, x_BH, v_BH, Vx, xs, ys, r, tau = build_setup(boxL,nx, ny, N, nrows, m_tot, m_BH, Vx, r, tau, T)
+    def __init__(self, boxL,nx, ny, N, nrows, m_host, m_BH, Vx, r, tau, T):
+        boxL, nx, ny, N, nrows, ncols, m_host, m_BH, x_BH, x0_BH, v_BH, Vx, xs, ys, r, tau = build_setup(boxL, nx, ny, N, nrows, m_host, m_BH, Vx, r, tau, T)
 
         self.boxL = boxL
         self.nx = nx
         self.ny = ny
         self.N = N
-        self.nrows = nrows
+        self.nrows = len(ys)
         self.ncols = ncols
 
-        self.m_tot = m_tot
+        self.m_host = m_host
         self.m_BH = m_BH
         self.x_BH = x_BH
+        self.x0_BH = x0_BH
         self.v_BH = v_BH
         self.Vx = Vx
 
@@ -33,7 +35,7 @@ class setup_class:
         self.slow_stars_fraction = 1
 
  
-    def compute_deflection_angle(self,sim, particle_row,savefig=False, subtitle = ''):
+    def compute_deflection_angle(self,sim, particle_row, scan_folder, sub_folder, Vx, savefig=False, subtitle = ''):
         def_angle_extremes = np.zeros(self.nrows)
         def_angles_plot = []
         ys_plot = []
@@ -63,6 +65,10 @@ class setup_class:
         y_fit = f_teta_def(x_fit, b90_fit)
 
         if savefig:
+
+            # Crea sottocartella se non esiste
+            Path(scan_folder + sub_folder).mkdir(parents=False, exist_ok=True)
+
             fig, ax = plt.subplots()
             ax.plot(ys_plot,def_angles_plot,'C0.',alpha=0.1)
             ax.plot(self.ys,def_angle_extremes,'rx',label='extremes')
@@ -71,23 +77,24 @@ class setup_class:
             ax.set_xlabel('Impact parameter')
             ax.set_ylabel('Deflection angle [deg]')
             ax.legend(loc='upper left')
-            # ax.set_yscale('symlog') 
+            plt.savefig(scan_folder + sub_folder + rf'\da_Vx{Vx:.3f}t{sim.t:.1f}.png')
+            plt.close()
 
         return  b90_fit 
 
 
 
 
-    def compute_velocity_dispersion(self,sim,savefig=False, subtitle = ''):
+    def compute_velocity_dispersion(self,sim, scan_folder, sub_folder, Vx, savefig=False, subtitle = ''):
         # Calcolo la frazione di particelle con una velocità assoluta inferiore al BH
         slower_stars = 0
         vs = []             # velocirtà delle stelle
 
-        for p in sim.particles:
+        for p in sim.particles: 
             v = np.sqrt((p.vx + self.Vx)**2+p.vy**2)
             vs = np.append(vs,v) 
             if v < sim.particles['BH'].vx + self.Vx:                   # qui sto utilizzando la velocità iniziale del BH. Con v_squared < Vx**2 sembra buono
-                                                                # oppure v_squared*m_tot/N < Vx**2*m_BH
+                                                                # oppure v_squared*m_host/N < Vx**2*m_BH
                 slower_stars += 1
 
         self.slow_stars_fraction = slower_stars/sim.N
@@ -106,6 +113,10 @@ class setup_class:
         ########################### faccio il plot  
 
         if savefig:
+
+            # Crea sottocartella se non esiste
+            Path(scan_folder + sub_folder).mkdir(parents=False, exist_ok=True)
+
             fig, ax = plt.subplots(figsize=(10,4))
             ax.set_title(f'Velocity dispersion\nslow stars fraction = {self.slow_stars_fraction:.2f}' + subtitle)
             ax.set_xlabel('velocity')
@@ -117,7 +128,10 @@ class setup_class:
             ymin, ymax = ax.get_ylim()
             ax.vlines(sim.particles['BH'].vx + self.Vx,ymin,ymax,'r',linestyles='-',linewidth=4,label='black hole vx',alpha=0.5)
             # ax.set_yscale('log')
+            ax.set_xscale('symlog')
             ax.legend()
+            plt.savefig(scan_folder + sub_folder + rf'\vd_Vx{Vx:.3f}t{sim.t:.1f}.png')
+            plt.close()
 
             
             
@@ -127,9 +141,9 @@ class setup_class:
 
 
     
-    def compute_acc_comparison(self,sim,b90_th,b90_fit, time, savefig = False, subtitle = ''):
+    def compute_acc_comparison(self,sim,b90_th,b90_fit, time, scan_folder, sub_folder, Vx, savefig = False, subtitle = ''):
 
-        rho = self.m_tot/((self.boxL*self.nx)*(self.boxL*self.ny)) # surf density
+        rho = self.m_host/((self.boxL*self.nx)*(self.boxL*self.ny)) # surf density
         rho_slow_stars = rho*self.slow_stars_fraction
     
         b_max = self.boxL*self.nx
@@ -153,6 +167,10 @@ class setup_class:
 
         # Confronto la velocità del BH della simulazione con la velocità che deriva dalla
         if savefig:
+
+            # Crea sottocartella se non esiste
+            Path(scan_folder + sub_folder).mkdir(parents=False, exist_ok=True)
+
             fig, ax = plt.subplots(figsize=(7,5))
             ax.set_title(f'Confronto accelerazioni' + subtitle)
             ax.plot(ts_run,self.v_BH,'k-',label='sim')
@@ -161,8 +179,9 @@ class setup_class:
             ax.plot(ts_run,v_th(ts_run,a_lin_fit),'C2--',label=f'a_lin_fit = {a_lin_fit:.2f}')
             ax.set_ylabel('velocità')
             ax.set_xlabel('tempo ')
-
             ax.legend()
+            plt.savefig(scan_folder + sub_folder +rf'\ac_Vx{Vx:.3f}t{sim.t:.1f}.png')
+            plt.close()
             # xmin, xmax = ax[0].get_xlim()
 
             # ax[1].plot(ts_run,a_sim,'k-',label='sim')
@@ -178,7 +197,7 @@ class setup_class:
 
         return a_th, a_b90_fit, a_lin_fit
 
-def build_setup(boxL,nx, ny, N, nrows, m_tot, m_BH, Vx, r, tau, T):
+def build_setup(boxL,nx, ny, N, nrows, m_host, m_BH, Vx, r, tau, T):
     '''
         Descrivo la costruzione dei self e definisco i vari parametri
 
@@ -187,16 +206,20 @@ def build_setup(boxL,nx, ny, N, nrows, m_tot, m_BH, Vx, r, tau, T):
 
 
     ncols = int(N/nrows)
-
+   
     xs = np.linspace(-nx*boxL/2,nx*boxL/2,ncols)
     ys = np.linspace(-ny*boxL/2*0.9,ny*boxL/2*0.9,nrows)
+    m = 0
+    mask = (ys < -m) | (ys > m)
+    ys = ys[mask]
 
     x_BH = []
     v_BH = []
-    x_BH0 = boxL*(nx-1)/nx
-    v_BH0 = 0
-    x_BH = np.append(x_BH, x_BH0)
-    v_BH = np.append(v_BH, v_BH0) 
+    # x0_BH = boxL*(nx-1)/nx  
+    x0_BH = 0
+    v0_BH = 0
+    x_BH = np.append(x_BH, x0_BH)
+    v_BH = np.append(v_BH, v0_BH) 
 
-    return boxL, nx, ny, N, nrows, ncols, m_tot, m_BH, x_BH, v_BH, Vx, xs, ys, r, tau    
+    return boxL, nx, ny, N, nrows, ncols, m_host, m_BH, x_BH, x0_BH, v_BH, Vx, xs, ys, r, tau    
         
