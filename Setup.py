@@ -9,6 +9,10 @@ from pathlib import Path
 # che utilizzo in heartbeat per lo studio real time della frizione dinamica
 
 class setup_class:
+
+
+
+
     def __init__(self, boxL,nx, ny, N, nrows, m_host, m_BH, Vx, r, tau, T):
         boxL, nx, ny, N, nrows, ncols, m_host, m_BH, x_BH, x0_BH, v_BH, Vx, xs, ys, r, tau = build_setup(boxL, nx, ny, N, nrows, m_host, m_BH, Vx, r, tau, T)
 
@@ -35,11 +39,56 @@ class setup_class:
         self.slow_stars_fraction = 1
 
  
-    def compute_deflection_angle(self,sim, particle_row, scan_folder, sub_folder, Vx, savefig=False, subtitle = ''):
+    def compute_deflection_angle(self, sim, particle_row, scan_folder, sub_folder, frame, savefig=False, subtitle = ''):
+
+        """
+        Nel logaritmo dell'eq di Chandrasekhar compare il parametro di impatto critico b90, associato a deviazioni di 90°. Questa funzione ne ottiene una stima.
+
+        Anzitutto calcola di quanto vengono deviate le orbite delle particelle a seguito dell'interazione gravitazionale con il BH (interazione dominante). 
+        Poichè viene calcolato l'angolo di deviazione di ciascuna particella presente nella box, si possono distinguere due popolazioni: le particelle che 
+        devono ancora passare il BH (angoli di deviazione piccoli) e le particelle che lo hanno già passato (angoli di deviazione grandi). 
+
+        Siccome l'angolo di deviazione dipende, tramite l'eq (3) in main.ipynb dal parametro d'impatto b (noto per costruzione della simulazione) e 
+        dal parametro critico b90 (incognita) possiamo ricavare quest'ultimo eseguendo un fit in cui si considerano per ogni b iniziale l'angolo 
+        di deviazione massimo (corrispondente a particelle prossime ad uscire dalla box). 
+
+        Infine la funzione può creare un plot degli angoli di deviazione di tutte le particelle in funzione dei parametri di impatto iniziali, sovrapponendo
+        il fit tramite l'eq (3) e gli angoli di deviazione estremi usati per il fit.
+
+        Parameters
+        ----------
+        sim : class
+            Classe costruita tramite rebound
+            
+        particle_row : int
+            Il numero della riga in cui una particella è stata inserita nella box, a partire dal basso.
+
+        scan_folder : string
+            Cartella dello scan delle simulazioni, in cui viene salvato il file .pickle contentente tutte le run e il file di riepilogo .txt
+
+        sub_folder : string
+            Sottocartella in cui vengono salvate le immagini prodotte durante la singola run.
+
+        frame : int
+            Indice crescente che parte da 1 per distinguere in modo semplice le figure associate ad un valore di Vx
+
+        savefig : bool
+            Booleano per salvare o meno le figure
+
+        subtitle : string
+            Eventuale sottotitolo nelle figure
+            
+        Returns
+        -------
+        b90_fit : float
+            Il valore del parametro critico ottenuto dal fit
+        """
+
+
         def_angle_extremes = np.zeros(self.nrows)
         def_angles_plot = []
         ys_plot = []
-       
+        
         for row in range(0,self.nrows):
             def_angles = []
             for p in sim.particles:
@@ -77,7 +126,7 @@ class setup_class:
             ax.set_xlabel('Impact parameter')
             ax.set_ylabel('Deflection angle [deg]')
             ax.legend(loc='upper left')
-            plt.savefig(scan_folder + sub_folder + rf'\da_Vx{Vx:.3f}t{sim.t:.1f}.png')
+            plt.savefig(scan_folder + sub_folder + rf'\da_{frame:d}.png')
             plt.close()
 
         return  b90_fit 
@@ -85,7 +134,45 @@ class setup_class:
 
 
 
-    def compute_velocity_dispersion(self,sim, scan_folder, sub_folder, Vx, savefig=False, subtitle = ''):
+    def compute_velocity_dispersion(self, sim, scan_folder, sub_folder, frame, savefig=False, subtitle = ''):
+        """
+        Nell'eq di Chandrasekhar compare la frazione di stelle con velocità in modulo minore a quella del BH. Questa funzione la calcola.
+
+
+        Nel farlo tiene conto del fatto che il numero di stelle nella box non è esattamente costante.
+        Infine la funzione può plottare la distribuzione dei moduli delle velocità e delle componenti x e y, con una linea verticale a rappresentare 
+        la velocità orizzontale del BH.
+
+
+        Parameters
+        ----------
+        sim : class
+            Classe costruita tramite rebound
+            
+        scan_folder : string
+            Cartella dello scan delle simulazioni, in cui viene salvato il file .pickle contentente tutte le run e il file di riepilogo .txt
+
+        sub_folder : string
+            Sottocartella in cui vengono salvate le immagini prodotte durante la singola run.
+
+        frame : int
+            Indice crescente che parte da 1 per distinguere in modo semplice le figure associate ad un valore di Vx
+
+        savefig : bool
+            Booleano per salvare o meno le figure
+
+        subtitle : string
+            Eventuale sottotitolo nelle figure
+            
+ 
+ 
+        Returns
+        -------
+        b90_fit : float
+            Il valore del parametro critico ottenuto dal fit
+        """
+
+
         # Calcolo la frazione di particelle con una velocità assoluta inferiore al BH
         slower_stars = 0
         vs = []             # velocirtà delle stelle
@@ -118,7 +205,7 @@ class setup_class:
             Path(scan_folder + sub_folder).mkdir(parents=False, exist_ok=True)
 
             fig, ax = plt.subplots(figsize=(10,4))
-            ax.set_title(f'Velocity dispersion\nslow stars fraction = {self.slow_stars_fraction:.2f}' + subtitle)
+            ax.set_title(f'Velocity dispersion\nslow stars fraction = {self.slow_stars_fraction:.2f}, N = {sim.N}' + subtitle)
             ax.set_xlabel('velocity')
             ax.set_ylabel('number of stars')
             ax.set_xlim(-100,100)
@@ -126,11 +213,12 @@ class setup_class:
             ax.hist(pvx,bins=200,label=f'stars vx, std = {pvx_std:.2f}',alpha=0.2,color='C2') #*100/np.sum(pvx)
             ax.hist(pvy,bins=200,label=f'stars vy, std = {pvy_std:.2f}',alpha=0.2,color='C3')
             ymin, ymax = ax.get_ylim()
-            ax.vlines(sim.particles['BH'].vx + self.Vx,ymin,ymax,'r',linestyles='-',linewidth=4,label='black hole vx',alpha=0.5)
+            vx_BH = sim.particles['BH'].vx + self.Vx
+            ax.vlines(vx_BH,ymin,ymax,'r',linestyles='-',linewidth=4,label=f'vx_BH = {vx_BH:.3f}',alpha=0.5)
             # ax.set_yscale('log')
             ax.set_xscale('symlog')
-            ax.legend()
-            plt.savefig(scan_folder + sub_folder + rf'\vd_Vx{Vx:.3f}t{sim.t:.1f}.png')
+            ax.legend(loc='upper left')
+            plt.savefig(scan_folder + sub_folder + rf'\vd_{frame:d}.png')
             plt.close()
 
             
@@ -141,7 +229,7 @@ class setup_class:
 
 
     
-    def compute_acc_comparison(self,sim,b90_th,b90_fit, time, scan_folder, sub_folder, Vx, savefig = False, subtitle = ''):
+    def compute_acc_comparison(self,sim,b90_th,b90_fit, time, scan_folder, sub_folder, frame, savefig = False, subtitle = ''):
 
         rho = self.m_host/((self.boxL*self.nx)*(self.boxL*self.ny)) # surf density
         rho_slow_stars = rho*self.slow_stars_fraction
@@ -179,8 +267,8 @@ class setup_class:
             ax.plot(ts_run,v_th(ts_run,a_lin_fit),'C2--',label=f'a_lin_fit = {a_lin_fit:.2f}')
             ax.set_ylabel('velocità')
             ax.set_xlabel('tempo ')
-            ax.legend()
-            plt.savefig(scan_folder + sub_folder +rf'\ac_Vx{Vx:.3f}t{sim.t:.1f}.png')
+            ax.legend(loc='lower left')
+            plt.savefig(scan_folder + sub_folder +rf'\ac_{frame:d}.png')
             plt.close()
             # xmin, xmax = ax[0].get_xlim()
 
@@ -223,3 +311,4 @@ def build_setup(boxL,nx, ny, N, nrows, m_host, m_BH, Vx, r, tau, T):
 
     return boxL, nx, ny, N, nrows, ncols, m_host, m_BH, x_BH, x0_BH, v_BH, Vx, xs, ys, r, tau    
         
+
